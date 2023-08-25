@@ -1,4 +1,4 @@
-module github.com/alex-laycalvert/coder-hardly-know-er
+module github.com/alex-laycalvert/vi-minus-minus
 
 go 1.21.0
 

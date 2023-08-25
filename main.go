@@ -4,13 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/alex-laycalvert/vi-minus-minus/buffer"
 	"github.com/gdamore/tcell"
 )
-
-type Position struct {
-	row int
-	col int
-}
 
 const (
 	Normal = iota
@@ -27,13 +23,15 @@ func main() {
 	insertStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack).Blink(true)
 	mode := Normal
 	style := normalStyle
-	lines := []string{""}
-	sideBarLen := 1 + len(fmt.Sprintf("%v", len(lines)-1))
+
+	buf := buffer.New()
+	buf.AppendLine("")
+	sideBarLen := 1 + len(fmt.Sprintf("%v", buf.Len()))
 	col := 0
 	row := 0
 	cols, rows := scr.Size()
 	for {
-		sideBarLen = 1 + len(fmt.Sprintf("%v", len(lines)))
+		sideBarLen = 1 + len(fmt.Sprintf("%v", buf.Len()))
 		if mode == Normal {
 			style = normalStyle
 		} else if mode == Insert {
@@ -46,8 +44,10 @@ func main() {
 			}
 		}
 		cols, rows = scr.Size()
-		for r, l := range lines {
-			drawText(scr, 0, r, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlue), fmt.Sprintf("%v", r))
+		iter := buf.Iter()
+		for iter.HasMore() {
+			r, l := iter.Next()
+			drawText(scr, 0, r, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlue), fmt.Sprintf("%v", r + 1))
 			drawText(scr, sideBarLen, r, style, l)
 		}
 		scr.ShowCursor(col+sideBarLen, row)
@@ -65,25 +65,33 @@ func main() {
 					col -= 1
 				}
 				if ev.Rune() == 'j' {
-					if len(lines) > row+1 {
+					if buf.Len() > row+1 {
 						row += 1
-						if len(lines) <= row {
-							lines = append(lines, "")
+						if buf.Len() <= row {
+							buf.AppendLine("")
 						}
-						col = min(len(lines[row]), col)
+						col = min(buf.LineLen(row), col)
 					}
 				}
 				if ev.Rune() == 'k' {
 					row--
 					if row >= 0 {
-						col = min(len(lines[row]), col)
+						col = min(buf.LineLen(row), col)
 					}
 				}
 				if ev.Rune() == 'l' {
 					col++
-					if col > len(lines[row]) {
-						col = len(lines[row])
+					if col > buf.LineLen(row) {
+						col = buf.LineLen(row)
 					}
+				}
+				if ev.Rune() == 'g' {
+					row = 0
+					col = buf.LineLen(row)
+				}
+				if ev.Rune() == 'G' {
+					row = buf.Len() - 1
+					col = buf.LineLen(row)
 				}
 				if ev.Rune() == 'i' {
 					mode = Insert
@@ -91,8 +99,8 @@ func main() {
 				if ev.Rune() == 'a' {
 					mode = Insert
 					col++
-					if col > len(lines[row]) {
-						lines[row] += " "
+					if col > buf.LineLen(row) {
+						buf.AppendToLine(row, " ")
 					}
 				}
 				if ev.Rune() == 'I' {
@@ -101,22 +109,18 @@ func main() {
 				}
 				if ev.Rune() == 'A' {
 					mode = Insert
-					col = len(lines[row])
+					col = buf.LineLen(row)
 				}
 				if ev.Rune() == 'o' {
 					mode = Insert
 					col = 0
-					lines = append(lines, "")
 					row++
-					copy(lines[row+1:], lines[row:])
-					lines[row] = ""
+					buf.InsertLine("", row)
 				}
 				if ev.Rune() == 'O' {
 					mode = Insert
 					col = 0
-					lines = append(lines, "")
-					copy(lines[row+1:], lines[row:])
-					lines[row] = ""
+					buf.InsertLine("", row)
 				}
 			} else if mode == Insert {
 				if ev.Key() == tcell.KeyEscape {
@@ -124,50 +128,54 @@ func main() {
 				} else if ev.Key() == tcell.KeyEnter {
 					row++
 					col = 0
-					lines = append(lines, "")
-					copy(lines[row:], lines[row-1:])
-					lines[row] = ""
+					buf.InsertLine("", row)
 				} else if ev.Key() == tcell.KeyBackspace2 {
-					if len(lines[row]) > 0 {
-						lines[row] = lines[row][0 : len(lines[row])-1]
+					if buf.LineLen(row) > 0 {
+						buf.ReplaceLine(row, buf.Line(row)[:buf.LineLen(row)-1])
 					}
 					col -= 1
 					if col < 0 && row > 0 {
+						if row > 0 {
+							buf.RemoveLine(row)
+						}
 						row--
-						col = len(lines[row])
+						col = buf.LineLen(row)
 					}
 				} else if ev.Key() == tcell.KeyCtrlW {
-					length := len(lines[row])
+					length := buf.LineLen(row)
 					if length == 0 {
+						if row > 0 {
+							buf.RemoveLine(row)
+						}
 						row--
 						if row >= 0 {
-							col = len(lines[row])
+							col = buf.LineLen(row)
 						}
 					} else {
 						foundChar := false
 						for i := length - 1; i >= 0; i-- {
-							if lines[row][i] != ' ' && !foundChar {
+							if buf.Line(row)[i] != ' ' && !foundChar {
 								foundChar = true
 							}
-							if lines[row][i] == ' ' && foundChar {
-								lines[row] = lines[row][0 : i+1]
-								col = len(lines[row])
+							if buf.Line(row)[i] == ' ' && foundChar {
+								buf.ReplaceLine(row, buf.Line(row)[:i+1])
+								col = buf.LineLen(row)
 								break
 							}
 							if i == 0 {
-								lines[row] = ""
+								buf.ReplaceLine(row, "")
 								col = 0
 							}
 						}
 					}
 				} else if ev.Key() == tcell.KeyTab {
-					lines[row] += "    "
+					buf.AppendToLine(row, "    ")
 					col += 4
 				} else {
-					if len(lines[row]) == 0 {
-						lines[row] += string(ev.Rune())
+					if buf.LineLen(row) == 0 {
+						buf.AppendToLine(row, string(ev.Rune()))
 					} else {
-						lines[row] = lines[row][:col] + string(ev.Rune()) + lines[row][col:]
+						buf.ReplaceLine(row, buf.Line(row)[:col]+string(ev.Rune())+buf.Line(row)[col:])
 					}
 					col += 1
 				}
