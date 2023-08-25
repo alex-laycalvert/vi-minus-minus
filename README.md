@@ -1,2 +1,3 @@
-# coder-hardly-know-er
-Seeing if building a terminal text editor will fill the void in my heart.
+# vi-minus-minus
+
+It's like Vi/Vim, but worse.
