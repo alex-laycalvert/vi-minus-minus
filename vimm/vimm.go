@@ -51,15 +51,22 @@ func (v *Vimm) Show() {
 		}
 	}
 	buf := v.CurrentBuffer()
+	headerStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack).Bold(true)
+	switch buf.Mode() {
+	case buffer.Normal:
+		v.drawText(0, 0, headerStyle, "NORMAL")
+	case buffer.Insert:
+		v.drawText(0, 0, headerStyle, "INSERT")
+	}
 	iter := buf.Iter()
 	sideBar := 1 + len(fmt.Sprintf("%v", buf.Len()))
 	for iter.HasMore() {
 		r, l := iter.Next()
-		v.drawText(0, r, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlue), fmt.Sprintf("%v", r+1))
-		v.drawText(sideBar, r, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite), l)
+		v.drawText(0, r+1, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlue), fmt.Sprintf("%v", r+1))
+		v.drawText(sideBar, r+1, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite), l)
 	}
 	col, row := buf.Position()
-	v.screen.ShowCursor(col+sideBar, row)
+	v.screen.ShowCursor(col+sideBar, row+1)
 	v.screen.Show()
 }
 

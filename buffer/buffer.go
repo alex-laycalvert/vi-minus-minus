@@ -70,6 +70,10 @@ func (buffer *Buffer) LineLen(index int) int {
 	return len(buffer.lines[index])
 }
 
+func (buffer *Buffer) Mode() int {
+	return buffer.mode
+}
+
 func (buffer *Buffer) Line(index int) string {
 	return buffer.lines[index]
 }
