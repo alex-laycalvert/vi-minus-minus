@@ -70,19 +70,21 @@ func (app *App) Show() {
 	case Insert:
 		app.drawText(0, 0, headerStyle, "INSERT")
 	}
-
-	startRow := app.startRow
-	endRow := min(app.endRow, buf.Len()-1)
-	sideBar := 1 + len(fmt.Sprintf("%v", buf.Len()))
-	for r := startRow; r <= endRow; r++ {
+	sideBar := len(fmt.Sprintf("%v ", buf.Len()))
+	for r := app.startRow; r <= max(app.rows, buf.Len()); r++ {
+		if r >= buf.Len() {
+			break
+		}
 		line := buf.Line(r)
-		if app.startCol < len(line) {
+		if app.startCol >= len(line) && app.startCol != 0 {
+			line = ""
+		} else if app.startCol < len(line) {
 			line = line[app.startCol:]
 		}
-		app.drawText(0, r+1, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlue), fmt.Sprintf("%v", r+1))
-		app.drawText(sideBar, r+1, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite), line)
+		app.drawText(0, r+1-app.startRow, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite), fmt.Sprintf("%v", r+1))
+		app.drawText(sideBar, r+1-app.startRow, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite), line)
 	}
-	app.screen.ShowCursor(app.col+sideBar, app.row+1)
+	app.screen.ShowCursor(app.col+sideBar-app.startCol, app.row+1-app.startRow)
 	app.screen.Show()
 }
 
@@ -127,156 +129,116 @@ func (app *App) drawText(col int, row int, style tcell.Style, text string) {
 	for _, r := range []rune(text) {
 		app.screen.SetContent(col, row, r, nil, style)
 		col++
-		if col >= app.cols {
+		if col > app.cols {
 			break
 		}
 	}
 }
 
 func (app *App) processKeyEvent(event *tcell.EventKey) bool {
-	buffer := app.CurrentBuffer()
-	if app.mode == Normal {
+	buf := app.CurrentBuffer()
+	switch app.mode {
+	case Normal:
 		if event.Key() == tcell.KeyCtrlC {
 			return true
-		}
-		if event.Rune() == 'h' {
-			app.col -= 1
-		}
-		if event.Rune() == 'j' {
-			if buffer.Len() > app.row+1 {
-				app.row += 1
-				if buffer.Len() <= app.row {
-					buffer.AppendLine("")
-				}
-				app.col = min(buffer.LineLen(app.row), app.col)
-			}
-		}
-		if event.Rune() == 'k' {
-			app.row--
-			if app.row >= 0 {
-				app.col = min(buffer.LineLen(app.row), app.col)
-			}
-		}
-		if event.Rune() == 'l' {
-			app.col++
-			if app.col > buffer.LineLen(app.row) {
-				app.col = buffer.LineLen(app.row) - 1
-				app.startCol++
-			}
-		}
-		if event.Rune() == 'g' {
-			app.row = 0
-			app.col = buffer.LineLen(app.row)
-		}
-		if event.Rune() == 'G' {
-			app.row = buffer.Len() - 1
-			app.col = buffer.LineLen(app.row)
-		}
-		if event.Rune() == 'i' {
-			app.mode = Insert
-		}
-		if event.Rune() == 'a' {
-			app.mode = Insert
-			app.col++
-			if app.col > buffer.LineLen(app.row) {
-				buffer.AppendToLine(app.row, " ")
-			}
-		}
-		if event.Rune() == 'I' {
-			app.mode = Insert
-			app.col = 0
-			app.startCol = 0
-		}
-		if event.Rune() == 'A' {
-			app.mode = Insert
-			app.col = buffer.LineLen(app.row)
-		}
-		if event.Rune() == 'o' {
-			app.mode = Insert
-			app.col = 0
-			app.startCol = 0
+		} else if event.Rune() == 'h' {
+			app.col--
+			app.startCol--
+		} else if event.Rune() == 'j' {
 			app.row++
-			buffer.InsertLine("", app.row)
-		}
-		if event.Rune() == 'O' {
+			app.col = min(app.col, buf.LineLen(app.row))
+		} else if event.Rune() == 'k' {
+			app.row--
+		} else if event.Rune() == 'l' {
+			app.col++
+		} else if event.Rune() == 'i' {
+			app.mode = Insert
+		} else if event.Rune() == 'I' {
 			app.mode = Insert
 			app.col = 0
 			app.startCol = 0
-			buffer.InsertLine("", app.row)
+		} else if event.Rune() == 'a' {
+			app.mode = Insert
+			app.col++
+		} else if event.Rune() == 'A' {
+			app.mode = Insert
+			app.col = buf.LineLen(app.row)
+		} else if event.Rune() == 'o' {
+			app.mode = Insert
+			app.row++
+			buf.InsertLine(app.row, "")
+			app.col = 0
+			app.startCol = 0
+		} else if event.Rune() == 'O' {
+			app.mode = Insert
+			buf.InsertLine(app.row, "")
+			app.col = 0
+			app.startCol = 0
 		}
-	} else if app.mode == Insert {
+	case Insert:
 		if event.Key() == tcell.KeyEscape {
 			app.mode = Normal
+		} else if event.Key() == tcell.KeyCtrlW {
+			// TODO: kill last word
+		} else if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
+			if app.col == 0 && buf.Len() > 1 {
+				line := buf.RemoveLine(app.row)
+				app.row--
+				app.col = buf.LineLen(app.row)
+				if app.startRow > 0 {
+					app.startRow--
+				}
+				buf.AppendToLine(app.row, line)
+			} else {
+				removed := buf.RemoveFromLine(app.row, app.col-1, 1)
+				app.col -= removed
+				app.startCol -= removed
+			}
 		} else if event.Key() == tcell.KeyEnter {
 			app.row++
+			buf.InsertLine(app.row, "")
 			app.col = 0
 			app.startCol = 0
-			buffer.InsertLine("", app.row)
-		} else if event.Key() == tcell.KeyBackspace2 {
-			if buffer.LineLen(app.row) > 0 {
-				buffer.ReplaceLine(app.row, buffer.Line(app.row)[:buffer.LineLen(app.row)-1])
-			}
-			app.col -= 1
-			if app.col < 0 && app.row > 0 {
-				if app.row > 0 {
-					buffer.RemoveLine(app.row)
-				}
-				app.row--
-				app.col = buffer.LineLen(app.row)
-			}
-		} else if event.Key() == tcell.KeyCtrlW {
-			length := buffer.LineLen(app.row)
-			if length == 0 {
-				if app.row > 0 {
-					buffer.RemoveLine(app.row)
-				}
-				app.row--
-				if app.row >= 0 {
-					app.col = buffer.LineLen(app.row)
-				}
-			} else {
-				foundChar := false
-				for i := length - 1; i >= 0; i-- {
-					if buffer.Line(app.row)[i] != ' ' && !foundChar {
-						foundChar = true
-					}
-					if buffer.Line(app.row)[i] == ' ' && foundChar {
-						buffer.ReplaceLine(app.row, buffer.Line(app.row)[:i+1])
-						app.col = buffer.LineLen(app.row)
-						break
-					}
-					if i == 0 {
-						buffer.ReplaceLine(app.row, "")
-						app.col = 0
-						app.startCol = 0
-					}
-				}
-			}
 		} else if event.Key() == tcell.KeyTab {
-			buffer.AppendToLine(app.row, "    ")
+			buf.InsertInLine(app.row, app.col, "    ")
 			app.col += 4
 		} else {
-			if buffer.LineLen(app.row) == 0 {
-				buffer.AppendToLine(app.row, string(event.Rune()))
-			} else {
-				buffer.ReplaceLine(app.row, buffer.Line(app.row)[:app.col]+string(event.Rune())+buffer.Line(app.row)[app.col:])
-			}
-			app.col += 1
+			buf.InsertInLine(app.row, app.col, string(event.Rune()))
+			app.col++
 		}
 	}
-	if app.col < 0 {
-		app.col = 0
-		app.startCol--
+	if app.row < app.startRow {
+		app.startRow = app.row
 	}
-	if app.col >= app.cols {
-		app.col = app.cols - 1
-		app.startCol++
+	if app.row >= buf.Len() {
+		app.row = buf.Len() - 1
+	}
+	if app.row >= app.rows+app.startRow-1 {
+		app.startRow++
 	}
 	if app.row < 0 {
 		app.row = 0
+		app.startRow = 0
+		app.startCol = 0
+		app.col = 0
 	}
-	if app.row >= app.rows {
-		app.row = app.rows - 1
+	sideBar := 2 + len(fmt.Sprintf("%v", buf.Len()))
+	if app.col > app.cols-sideBar+app.startCol {
+		// TODO: maybe add a -1 to this?
+		app.startCol += (app.col - app.startCol) - (app.cols - sideBar)
+	}
+	if app.col > buf.LineLen(app.row) {
+		app.col = buf.LineLen(app.row)
+	}
+	if app.col < 0 {
+		app.col = 0
+		app.startCol = 0
+	}
+	if app.col < app.startCol {
+		app.startCol = app.col
+	}
+	if app.startCol < 0 {
+		app.startCol = 0
 	}
 	return false
 }

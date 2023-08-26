@@ -48,10 +48,16 @@ func (buffer *Buffer) Len() int {
 }
 
 func (buffer *Buffer) LineLen(index int) int {
+	if index >= buffer.Len() {
+		return 0
+	}
 	return len(buffer.lines[index])
 }
 
 func (buffer *Buffer) Line(index int) string {
+	if index > buffer.Len() {
+		return ""
+	}
 	return buffer.lines[index]
 }
 
@@ -59,7 +65,7 @@ func (buffer *Buffer) Lines() []string {
 	return buffer.lines
 }
 
-func (buffer *Buffer) InsertLine(line string, index int) {
+func (buffer *Buffer) InsertLine(index int, line string) {
 	buffer.lines = append(buffer.lines, "")
 	if index == 0 {
 		copy(buffer.lines[index+1:], buffer.lines[index:])
@@ -67,6 +73,14 @@ func (buffer *Buffer) InsertLine(line string, index int) {
 		copy(buffer.lines[index:], buffer.lines[index-1:])
 	}
 	buffer.lines[index] = line
+}
+
+func (buffer *Buffer) InsertInLine(lineIndex int, index int, data string) {
+	if len(buffer.lines[lineIndex]) == 0 {
+		buffer.lines[lineIndex] = data
+		return
+	}
+	buffer.lines[lineIndex] = buffer.lines[lineIndex][:index] + data + buffer.lines[lineIndex][index:]
 }
 
 func (buffer *Buffer) ReplaceLine(index int, line string) {
@@ -81,8 +95,21 @@ func (buffer *Buffer) AppendToLine(index int, data string) {
 	buffer.lines[index] += data
 }
 
-func (buffer *Buffer) RemoveLine(index int) {
+func (buffer *Buffer) RemoveLine(index int) string {
+	if index >= buffer.Len() {
+		return ""
+	}
+	line := buffer.lines[index]
 	buffer.lines = append(buffer.lines[:index], buffer.lines[index+1:]...)
+	return line
+}
+
+func (buffer *Buffer) RemoveFromLine(lineIndex int, index int, count int) int {
+	if index >= len(buffer.lines[lineIndex]) || index < 0 {
+		return 0
+	}
+	buffer.lines[lineIndex] = buffer.lines[lineIndex][:index] + buffer.lines[lineIndex][index+count:]
+	return count
 }
 
 func (buffer *Buffer) Iter() BufferIterator {
