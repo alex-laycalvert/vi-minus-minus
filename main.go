@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/alex-laycalvert/vi-minus-minus/buffer"
-	"github.com/alex-laycalvert/vi-minus-minus/vimm"
+	"github.com/alex-laycalvert/vimm/buffer"
+	"github.com/alex-laycalvert/vimm/vimm"
 )
 
 func main() {

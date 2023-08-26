@@ -3,7 +3,7 @@ package vimm
 import (
 	"fmt"
 
-	"github.com/alex-laycalvert/vi-minus-minus/buffer"
+	"github.com/alex-laycalvert/vimm/buffer"
 	"github.com/gdamore/tcell"
 )
 

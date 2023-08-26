@@ -1,4 +1,4 @@
-module github.com/alex-laycalvert/vi-minus-minus
+module github.com/alex-laycalvert/vimm
 
 go 1.21.0
 
