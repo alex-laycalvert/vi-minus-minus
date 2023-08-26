@@ -104,12 +104,13 @@ func (buffer *Buffer) RemoveLine(index int) string {
 	return line
 }
 
-func (buffer *Buffer) RemoveFromLine(lineIndex int, index int, count int) int {
+func (buffer *Buffer) RemoveFromLine(lineIndex int, index int, count int) string {
 	if index >= len(buffer.lines[lineIndex]) || index < 0 {
-		return 0
+		return ""
 	}
+	removed := buffer.lines[lineIndex][index : index+count]
 	buffer.lines[lineIndex] = buffer.lines[lineIndex][:index] + buffer.lines[lineIndex][index+count:]
-	return count
+	return removed
 }
 
 func (buffer *Buffer) Iter() BufferIterator {

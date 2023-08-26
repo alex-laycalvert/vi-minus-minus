@@ -155,6 +155,13 @@ func (app *App) processKeyEvent(event *tcell.EventKey) bool {
 		} else if event.Rune() == 'G' {
 			app.row = buf.Len() - 1
 			app.col = min(app.col, buf.LineLen(app.row))
+		} else if event.Rune() == 'd' {
+			app.clipboard = buf.RemoveLine(app.row)
+			if buf.Len() == 0 {
+				buf.AppendLine("")
+			}
+		} else if event.Rune() == 'p' {
+			buf.InsertInLine(app.row, app.col-1, app.clipboard)
 		} else if event.Rune() == 'i' {
 			app.mode = Insert
 		} else if event.Rune() == 'I' {
@@ -195,8 +202,8 @@ func (app *App) processKeyEvent(event *tcell.EventKey) bool {
 				buf.AppendToLine(app.row, line)
 			} else {
 				removed := buf.RemoveFromLine(app.row, app.col-1, 1)
-				app.col -= removed
-				app.startCol -= removed
+				app.col -= len(removed)
+				app.startCol -= len(removed)
 			}
 		} else if event.Key() == tcell.KeyEnter {
 			app.row++
