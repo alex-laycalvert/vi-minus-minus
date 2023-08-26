@@ -23,8 +23,7 @@ type App struct {
 	mode          int
 	startCol      int
 	startRow      int
-	endCol        int
-	endRow        int
+	clipboard     string
 }
 
 func New() (*App, error) {
@@ -45,8 +44,6 @@ func New() (*App, error) {
 		rows:          rows,
 		startCol:      0,
 		startRow:      0,
-		endCol:        cols - 1,
-		endRow:        rows - 1,
 	}, nil
 }
 
@@ -151,6 +148,13 @@ func (app *App) processKeyEvent(event *tcell.EventKey) bool {
 			app.row--
 		} else if event.Rune() == 'l' {
 			app.col++
+		} else if event.Rune() == 'g' {
+			app.row = 0
+			app.startRow = 0
+			app.col = min(app.col, buf.LineLen(app.row))
+		} else if event.Rune() == 'G' {
+			app.row = buf.Len() - 1
+			app.col = min(app.col, buf.LineLen(app.row))
 		} else if event.Rune() == 'i' {
 			app.mode = Insert
 		} else if event.Rune() == 'I' {
@@ -214,7 +218,7 @@ func (app *App) processKeyEvent(event *tcell.EventKey) bool {
 		app.row = buf.Len() - 1
 	}
 	if app.row >= app.rows+app.startRow-1 {
-		app.startRow++
+		app.startRow += app.row - (app.rows + app.startRow - 2)
 	}
 	if app.row < 0 {
 		app.row = 0
@@ -223,12 +227,12 @@ func (app *App) processKeyEvent(event *tcell.EventKey) bool {
 		app.col = 0
 	}
 	sideBar := 2 + len(fmt.Sprintf("%v", buf.Len()))
+	if app.col > buf.LineLen(app.row) {
+		app.col = buf.LineLen(app.row)
+	}
 	if app.col > app.cols-sideBar+app.startCol {
 		// TODO: maybe add a -1 to this?
 		app.startCol += (app.col - app.startCol) - (app.cols - sideBar)
-	}
-	if app.col > buf.LineLen(app.row) {
-		app.col = buf.LineLen(app.row)
 	}
 	if app.col < 0 {
 		app.col = 0
