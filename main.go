@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/alex-laycalvert/vimm/app"
 	"github.com/alex-laycalvert/vimm/buffer"
-	"github.com/alex-laycalvert/vimm/vimm"
 )
 
 func main() {
 	buf := buffer.New()
 	buf.AppendLine("")
-	v, err := vimm.New()
+	v, err := app.New()
 	checkError(err)
 	defer quit(v)
 	v.AddBuffer(buffer.FromString(""))
@@ -23,7 +23,7 @@ func main() {
 	}
 }
 
-func quit(view *vimm.Vimm) {
+func quit(view *app.App) {
 	view.End()
 	os.Exit(0)
 }
